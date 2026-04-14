@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+:root {
+  /* ── Tokyo palette — warm cream canvas, deep warm ink, signature red ── */
+  --paper: #F4EBD9;         /* warm cream (Tokyo reference) */
+  --paper-deep: #EADFC8;    /* slightly deeper cream */
+  --paper-muted: #E0D3B5;   /* deepest cream for muted fills */
+  --ink: #1C0F09;           /* warm near-black */
+  --ink-muted: #3A2A20;     /* brown-black for body copy */
+  --ink-soft: #6B5A50;      /* warm gray for meta */
+  --ink-softer: #9A8A80;    /* very light meta */
+  --rule: #D4C8B0;          /* warm rule color */
+
+  /* Signature: Tokyo red — used for CTAs, pass chips, highlight stat */
+  --accent: #D63426;
+  --accent-deep: #A8221B;
+
+  /* Editorial secondaries — warmer tones that harmonize with red+cream */
+  --tangerine: #E8823A;     /* warm orange — error/alert chips */
+  --violet: #4A3B5A;        /* deep aubergine — editorial ink-alt */
+  --sunshine: #E8B840;      /* warm gold */
+  --rose: #D47B7B;          /* dusty rose */
+  --sky: #6B9BC9;           /* muted editorial blue */
+
+  /* Legacy */
+  --background: var(--paper);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-paper-muted: var(--paper-muted);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-softer: var(--ink-softer);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-tangerine: var(--tangerine);
+  --color-violet: var(--violet);
+  --color-sunshine: var(--sunshine);
+  --color-rose: var(--rose);
+  --color-sky: var(--sky);
+  --color-rule: var(--rule);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-space-grotesk);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Tabular numerals everywhere useful */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Soft editorial shadow (warm brown tint) ─── */
+.shadow-soft {
+  box-shadow: 0 18px 40px -22px rgba(28, 15, 9, 0.32);
+}
+.shadow-soft-lg {
+  box-shadow: 0 28px 60px -28px rgba(28, 15, 9, 0.46);
+}
+.shadow-soft-hover:hover {
+  box-shadow: 0 32px 68px -26px rgba(28, 15, 9, 0.52);
+}
+
+/* ─── Sticker floats — gentle drift ─── */
+@keyframes sticker-float-a {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-10px) rotate(-4deg); }
+}
+@keyframes sticker-float-b {
+  0%, 100% { transform: translateY(0) rotate(10deg); }
+  50% { transform: translateY(-7px) rotate(14deg); }
+}
+@keyframes sticker-float-c {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+.sticker-a { animation: sticker-float-a 9s ease-in-out infinite; }
+.sticker-b { animation: sticker-float-b 11s ease-in-out infinite; }
+.sticker-c { animation: sticker-float-c 8s ease-in-out infinite; }
+
+/* ─── Marquee ticker ─── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee 40s linear infinite;
+}
+.marquee-track-fast {
+  animation: marquee 22s linear infinite;
+}
+
+/* ─── Binary tape ticker (wodniack-style editorial divider) ─── */
+@keyframes binary-shift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-33.333%); }
+}
+.binary-track {
+  animation: binary-shift 28s linear infinite;
+}
+
+/* ─── Crosshair corner marks (editorial registration) ─── */
+.corner-marks::before,
+.corner-marks::after,
+.corner-marks > .corner-bl,
+.corner-marks > .corner-br {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: currentColor;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.corner-marks::before {
+  top: 12px; left: 12px;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+}
+.corner-marks::after {
+  top: 12px; right: 12px;
+  border-top: 1.5px solid;
+  border-right: 1.5px solid;
+}
+.corner-marks > .corner-bl {
+  bottom: 12px; left: 12px;
+  border-bottom: 1.5px solid;
+  border-left: 1.5px solid;
+}
+.corner-marks > .corner-br {
+  bottom: 12px; right: 12px;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+/* ─── Mic button pulse animation ─── */
+@keyframes mic-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.35);
+  }
+}
+
+/* ─── Prevent Mobile Scrolling when in Interview Mode ─── */
+.interview-active {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ─── Respect reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track, .marquee-track-fast, .binary-track,
+  .sticker-a, .sticker-b, .sticker-c { animation: none; }
+  .fill-text > span { background-size: 200% 200% !important; }
+}
+
+/* ─── GSAP scroll-triggered text fill effect ─── */
+.fill-text > span {
+  -webkit-background-clip: text;
+  background-clip: text;
+  background-color: var(--ink-softer);
+  background-image: linear-gradient(135deg, var(--ink) 50%, var(--ink-softer) 60%);
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  background-size: 0% 200%;
+  color: transparent;
+  display: inline;
+  will-change: background-size;
+}
