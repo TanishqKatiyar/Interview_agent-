@@ -401,7 +401,10 @@ export default class InterviewEngine {
       phase: this.phase,
     };
     this.transcript.push(entry);
-    this.exchangeCount++;
+    // Only count candidate turns for exchange tracking (avoid inflating count)
+    if (role === 'candidate') {
+      this.exchangeCount++;
+    }
     this.phaseExchanges++;
 
     // Metadata: speaking time estimate (rough: 130 wpm average)
@@ -566,6 +569,14 @@ export default class InterviewEngine {
       ? this.metadata.questionsAsked.map((q, i) => `${i + 1}. "${q}"`).join('\n')
       : 'None yet.';
 
+    // Build a clear question roadmap so the LLM never re-asks covered questions
+    const questionRoadmap = this.selectedQuestions.map((q, i) => {
+      let status = '[ UPCOMING ]';
+      if (i < this.currentQuestionIndex) status = '[ DONE ✓ ]';
+      else if (i === this.currentQuestionIndex) status = '[ CURRENT → ]';
+      return `  Q${i + 1}. ${status} (${q.category}) "${q.text}"`;
+    }).join('\n');
+
     return `You are Nisha, a 32-year-old senior hiring manager at Cuemath who has personally interviewed over 500 tutor candidates. You came up as a math teacher yourself — eight years in classrooms before moving into hiring. You genuinely love teaching and get excited when candidates show real depth, not rehearsed answers.
 
 You are on a VOICE CALL. Everything you say gets spoken aloud through text-to-speech. This is not a chat — it's a real conversation.
@@ -656,7 +667,10 @@ ${this.getAdaptiveInstructions()}
 QUESTIONS ALREADY ASKED:
 ${questionsAsked}
 
-EXCHANGE COUNT: ${this.exchangeCount}
+QUESTION ROADMAP (follow this order, NEVER revisit a [DONE] question):
+${questionRoadmap}
+
+CANDIDATE TURNS SO FAR: ${this.exchangeCount}
 
 You are Nisha. Relaxed, genuine, direct, sharp. You don't perform warmth — you just care about finding good tutors for kids.`;
   }

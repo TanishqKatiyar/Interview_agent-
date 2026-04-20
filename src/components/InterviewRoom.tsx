@@ -389,7 +389,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
 
     setCoachingLoading(true);
     let attempts = 0;
-    const maxAttempts = 12; // ~60s budget
+    const maxAttempts = 18; // ~90s budget (assessment+coaching can take a while)
 
     let timerId: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -397,8 +397,14 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
         const res = await fetch(`/api/interviews/${interview.id}/coaching`);
         if (res.ok) {
           const data = await res.json();
-          if (data.coaching_feedback && data.coaching_feedback.length > 0) {
-            setCoachingTips(data.coaching_feedback);
+          // coaching_feedback is null → not ready yet, [] → done but empty, [...] → done with tips
+          if (data.coaching_feedback !== null && data.coaching_feedback !== undefined) {
+            if (data.coaching_feedback.length > 0) {
+              setCoachingTips(data.coaching_feedback);
+            } else {
+              // Empty array = coaching ran but produced nothing — stop polling
+              setCoachingTips([]);
+            }
             setCoachingLoading(false);
             return;
           }
@@ -406,7 +412,12 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
       } catch { /* ignore */ }
 
       attempts++;
-      if (attempts >= maxAttempts) { setCoachingLoading(false); return; }
+      if (attempts >= maxAttempts) {
+        // Timed out — show fallback
+        setCoachingTips([]);
+        setCoachingLoading(false);
+        return;
+      }
       timerId = setTimeout(poll, 5000);
     };
 
@@ -511,52 +522,80 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
   // END INTERVIEW
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // Guard against double-fire of endInterview
+  const endingRef = useRef(false);
+
   const endInterview = useCallback(async () => {
+    // Prevent double invocation
+    if (endingRef.current) return;
+    endingRef.current = true;
+
     clearSilenceTimer();
     if (hardTimeoutRef.current) clearTimeout(hardTimeoutRef.current);
-    setMicState('PROCESSING');
 
+    // ── 1. Immediately transition UI to DONE so it never gets stuck ──
+    setScreenState('DONE');
+
+    // ── 2. Stop voice resources (with timeout so it can't hang) ──
     const vm = voiceRef.current;
-    let audioUrl = '';
+    let audioBlob: Blob | null = null;
     if (vm) {
       try {
-        const blob = await vm.stopRecording();
-        if (blob.size > 0) audioUrl = await uploadAudio(interview.id, blob);
-      } catch (e) {
-        console.error('[END] Audio upload failed:', e);
-      }
+        audioBlob = await Promise.race([
+          vm.stopRecording(),
+          new Promise<Blob>((resolve) => setTimeout(() => resolve(new Blob([])), 3_000)),
+        ]);
+      } catch { /* ignore */ }
       vm.destroy();
     }
 
+    // ── 3. Save to Supabase in background (with timeout) ──
     if (engineRef.current) {
       engineRef.current.forceEnd();
       const payload = {
         status: 'completed' as const,
         transcript: engineRef.current.getTranscript(),
         metadata: engineRef.current.getMetadata(),
-        audio_url: audioUrl || undefined,
+        audio_url: undefined as string | undefined,
         completed_at: new Date().toISOString(),
         duration_seconds: Math.floor((Date.now() - (interviewStartTimeRef.current || Date.now())) / 1000),
       };
 
-      try {
-        await updateInterview(interview.id, payload);
-        localStorage.removeItem(`interview_state_${interview.id}`);
-        logInfo('interview', 'Interview completed', { duration_seconds: payload.duration_seconds }, interview.id);
-        fetch('/api/interviews/assess', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ interview_id: interview.id }),
-        }).catch(() => {});
-      } catch (error) {
-        logError('db', 'Failed to save interview', { error: String(error) }, interview.id);
-        localStorage.setItem(`interview_backup_${interview.id}`, JSON.stringify({ ...payload, savedAt: Date.now() }));
-      }
+      // Background save — don't block the DONE screen
+      (async () => {
+        try {
+          // Upload audio if available
+          if (audioBlob && audioBlob.size > 0) {
+            try {
+              payload.audio_url = await Promise.race([
+                uploadAudio(interview.id, audioBlob),
+                new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Audio upload timeout')), 8_000)),
+              ]);
+            } catch { /* non-critical */ }
+          }
+
+          await Promise.race([
+            updateInterview(interview.id, payload),
+            new Promise<void>((_, reject) => setTimeout(() => reject(new Error('DB save timeout')), 10_000)),
+          ]);
+          localStorage.removeItem(`interview_state_${interview.id}`);
+          logInfo('interview', 'Interview completed', { duration_seconds: payload.duration_seconds }, interview.id);
+
+          // Trigger assessment
+          fetch('/api/interviews/assess', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interview_id: interview.id }),
+          }).catch(() => {});
+        } catch (error) {
+          logError('db', 'Failed to save interview', { error: String(error) }, interview.id);
+          localStorage.setItem(`interview_backup_${interview.id}`, JSON.stringify({ ...payload, savedAt: Date.now() }));
+        }
+      })();
     }
 
     wakeLockRef.current?.release().catch(() => {});
-    await forceFlushLogs();
-    setScreenState('DONE');
+    forceFlushLogs().catch(() => {});
   }, [interview.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -565,6 +604,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
 
   const processAnswer = useCallback(async (answerText: string) => {
     if (processingRef.current) return;
+    if (endingRef.current) return; // Interview already ending
     processingRef.current = true;
 
     try {
@@ -1444,6 +1484,16 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
             </ul>
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft leading-[1.8]">
               Suggestions only / Full evaluation handled by the team
+            </p>
+          </div>
+        )}
+
+        {/* Coaching fallback — when tips are empty (LLMs failed or timed out) */}
+        {coachingTips && coachingTips.length === 0 && !coachingLoading && (
+          <div className="mt-10 border border-ink/20 border-[1.5px] px-5 py-6">
+            <p className="text-[15px] leading-relaxed text-ink-muted">
+              Coaching notes are being processed with your full assessment.
+              The Cuemath team will share detailed feedback when they reach out.
             </p>
           </div>
         )}

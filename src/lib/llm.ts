@@ -123,7 +123,7 @@ export async function callLLM(
   try {
     // FAST PATH: One provider call, standard timeout
     const start = Date.now();
-    const response = await callProvider(providerRanking.primary, messages, options, 8000);
+    const response = await callProvider(providerRanking.primary, messages, options, 5000);
     logInfo('llm', 'LLM response received', {
       provider: providerRanking.primary,
       latency_ms: Date.now() - start,
@@ -140,7 +140,7 @@ export async function callLLM(
     if (providerRanking.fallback) {
       try {
         // Fallback attempt
-        const response = await callProvider(providerRanking.fallback, messages, options, 8000);
+        const response = await callProvider(providerRanking.fallback, messages, options, 5000);
         // Swap: fallback is reliable enough, make it the new primary
         console.log(`[LLM] Swap: ${providerRanking.fallback} is the new primary.`);
         providerRanking.primary = providerRanking.fallback;

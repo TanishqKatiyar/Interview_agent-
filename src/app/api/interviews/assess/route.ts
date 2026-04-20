@@ -323,18 +323,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log('[assess] No ADMIN_NOTIFICATION_EMAIL set — skipping notification');
     }
 
-    // ── 9. Generate coaching feedback (fire-and-forget) ──────────────────────
-    generateCoachingFeedback(interview.transcript)
-      .then(async (tips) => {
-        if (tips.length > 0) {
-          await updateInterview(interview_id, { coaching_feedback: tips });
-          console.log(`[assess] Coaching feedback saved (${tips.length} tips)`);
-          logInfo('api', 'Coaching feedback generated', { interview_id, tip_count: tips.length });
-        }
-      })
-      .catch((err) => {
-        console.error('[assess] Coaching feedback failed:', err);
-      });
+    // ── 9. Generate coaching feedback (awaited — must complete before lambda dies) ──
+    try {
+      const coachingResult = await Promise.race([
+        generateCoachingFeedback(interview.transcript),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 25_000)), // 25s timeout
+      ]);
+      
+      if (coachingResult && coachingResult.length > 0) {
+        await updateInterview(interview_id, { coaching_feedback: coachingResult });
+        console.log(`[assess] Coaching feedback saved (${coachingResult.length} tips)`);
+        logInfo('api', 'Coaching feedback generated', { interview_id, tip_count: coachingResult.length });
+      } else {
+        // Save empty array so polling can detect "done but empty" vs "not started"
+        await updateInterview(interview_id, { coaching_feedback: [] });
+        console.log('[assess] Coaching feedback timed out or returned empty — saved empty array');
+      }
+    } catch (err) {
+      console.error('[assess] Coaching feedback failed:', err);
+      // Save empty array so the client stops polling
+      await updateInterview(interview_id, { coaching_feedback: [] }).catch(() => {});
+    }
 
     // ── 10. Return success ──────────────────────────────────────────────────
     return NextResponse.json(
