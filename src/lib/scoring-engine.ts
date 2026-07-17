@@ -14,7 +14,7 @@ export function calculateHiringScore(
 
   // 2. COMPLETION MULTIPLIER
   const totalAsked = interview.metadata.questionsAsked?.length || 0;
-  const questionsAnswered = interview.transcript ? new Set(interview.transcript.filter(t => t.role === 'ai').map(t => t.content)).size : 0;
+  const questionsAnswered = interview.transcript ? interview.transcript.filter(t => t.role === 'candidate').length : 0;
   const questionRatio = totalAsked > 0 ? Math.min(1, questionsAnswered / totalAsked) : 0;
   
   const durationScore = Math.min(interview.duration_seconds || 0, 600) / 600;
@@ -52,7 +52,7 @@ export function calculateHiringScore(
   let recommendation: 'strong_hire' | 'hire' | 'maybe' | 'pass' = 'pass';
   if (composite >= 80 && confidence >= 70) recommendation = 'strong_hire';
   else if (composite >= 65 && confidence >= 50) recommendation = 'hire';
-  else if (composite >= 50 || confidence < 50) recommendation = 'maybe';
+  else if (composite >= 50 && confidence < 50) recommendation = 'maybe';
 
   // PERCENTILE
   // We determine this by comparing composite to others that have a non-null hiring_score

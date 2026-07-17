@@ -9,7 +9,7 @@ import { assessTranscript, generateCoachingFeedback } from '@/lib/gemini';
 import { sendAssessmentNotificationEmail } from '@/lib/email';
 import type { Assessment, Recommendation } from '@/lib/types';
 import { assessLimiter } from '@/lib/rate-limiter';
-import { sanitizeName } from '@/lib/sanitize';
+
 import { logInfo, logError } from '@/lib/logger';
 import { analyzeSpeechPatterns } from '@/lib/speech-analytics';
 import { analyzeIntegrity } from '@/lib/integrity-analysis';

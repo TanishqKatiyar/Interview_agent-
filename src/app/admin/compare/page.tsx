@@ -48,6 +48,7 @@ const PERSONA_ICON: Record<string, React.ComponentType<{ className?: string; str
   enthusiastic_explainer: Target,
   structured_coach: ClipboardList,
   empathetic_mentor: Heart,
+  adaptive_solver: RefreshCw,
 };
 
 // ─── Radar helpers ────────────────────────────────────────────────────────────

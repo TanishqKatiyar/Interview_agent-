@@ -62,9 +62,23 @@ class Logger {
     }
   }
 
-  // Force flush (call on page unload or interview end)
+  // Force flush (call on interview end)
   async forceFlush(): Promise<void> {
     await this.flush();
+  }
+
+  getQueueLength(): number {
+    return this.queue.length;
+  }
+
+  drainQueue(): LogEntry[] {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    const entries = [...this.queue];
+    this.queue = [];
+    return entries;
   }
 }
 
@@ -72,7 +86,33 @@ const logger = new Logger();
 
 // Flush on page unload
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => logger.forceFlush());
+  window.addEventListener('beforeunload', () => {
+    // Use keepalive fetch so the request survives page unload
+    if (logger.getQueueLength() === 0) return;
+    const entries = logger.drainQueue();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return;
+    try {
+      fetch(`${supabaseUrl}/rest/v1/logs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify(entries.map(e => ({
+          level: e.level,
+          category: e.category,
+          message: e.message,
+          interview_id: e.interview_id || null,
+          data: e.data || null,
+        }))),
+        keepalive: true,
+      });
+    } catch { /* best effort */ }
+  });
 }
 
 // Convenience functions

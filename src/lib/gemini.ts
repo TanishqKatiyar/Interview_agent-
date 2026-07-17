@@ -391,19 +391,28 @@ function extractJson(raw: string): string {
     text = fenceMatch[1].trim();
   }
 
-  // Strip any preamble before the first '{'
+  // Find the first '{' and its matching '}' using brace-depth tracking
   const braceStart = text.indexOf('{');
-  if (braceStart > 0) {
-    text = text.slice(braceStart);
+  if (braceStart === -1) return text;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = braceStart; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(braceStart, i + 1);
+    }
   }
 
-  // Strip any postamble after the last '}'
-  const braceEnd = text.lastIndexOf('}');
-  if (braceEnd !== -1 && braceEnd < text.length - 1) {
-    text = text.slice(0, braceEnd + 1);
-  }
-
-  return text;
+  // Fallback: return from first '{' to end
+  return text.slice(braceStart);
 }
 
 /**

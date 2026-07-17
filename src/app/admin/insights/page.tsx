@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function InsightsPage() {
   const allInterviews = await listInterviews(500);
-  const valid = allInterviews.filter((i) => i.assessment && i.status === 'completed');
+  const valid = allInterviews.filter((i) => i.assessment && (i.status === 'completed' || i.status === 'assessed'));
 
   if (valid.length === 0) {
     return (

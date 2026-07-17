@@ -76,7 +76,7 @@ async function callGroqServer(messages: any[], temperature: number, maxTokens: n
   }
 
   const data = await res.json();
-  return data.choices[0].message.content;
+  return data.choices?.[0]?.message?.content ?? '';
 }
 
 async function callGeminiServer(messages: any[], temperature: number, maxTokens: number): Promise<string> {
@@ -142,5 +142,5 @@ async function callOpenRouterServer(messages: any[], temperature: number, maxTok
   }
 
   const data = await res.json();
-  return data.choices[0].message.content;
+  return data.choices?.[0]?.message?.content ?? '';
 }

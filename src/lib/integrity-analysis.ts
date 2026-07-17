@@ -51,7 +51,7 @@ export async function analyzeIntegrity(
   const responseTimes: number[] = [];
   for (let i = 1; i < transcript.length; i++) {
     if (transcript[i].role === 'candidate' && transcript[i - 1].role === 'ai') {
-      responseTimes.push(transcript[i].timestamp - transcript[i - 1].timestamp);
+      responseTimes.push(Math.max(0, transcript[i].timestamp - transcript[i - 1].timestamp));
     }
   }
   

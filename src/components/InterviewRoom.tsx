@@ -184,6 +184,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
 
   // ── Network ──
   const [isOnline, setIsOnline] = useState(true);
+  const isOnlineRef = useRef(true);
   const [showOfflineModal, setShowOfflineModal] = useState(false);
   const offlineTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pendingAnswerRef = useRef<string | null>(null);
@@ -345,6 +346,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      isOnlineRef.current = true;
       setShowOfflineModal(false);
       if (offlineTimerRef.current) { clearTimeout(offlineTimerRef.current); offlineTimerRef.current = null; }
       const queued = pendingAnswerRef.current;
@@ -355,6 +357,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
     };
     const handleOffline = () => {
       setIsOnline(false);
+      isOnlineRef.current = false;
       logWarn('interview', 'Network dropped', { phase: engineRef.current?.getCurrentPhase() }, interview.id);
       offlineTimerRef.current = setTimeout(() => {
         if (screenStateRef.current === 'INTERVIEW') { saveState(); setShowOfflineModal(true); }
@@ -530,6 +533,9 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
     if (endingRef.current) return;
     endingRef.current = true;
 
+    // Stop any active STT recording to prevent race with processAnswer
+    try { voiceRef.current?.stopListening(); } catch { /* ignore */ }
+
     clearSilenceTimer();
     if (hardTimeoutRef.current) clearTimeout(hardTimeoutRef.current);
 
@@ -656,6 +662,9 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
         aiResponse = getNextEmergencyResponse(engine.getCurrentPhase());
       }
 
+      // Guard: if interview ended during LLM call, abort
+      if (screenStateRef.current !== 'INTERVIEW' || endingRef.current) return;
+
       engine.addEntry('ai', aiResponse);
       addMessage('ai', aiResponse);
       saveState();
@@ -734,7 +743,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
     setShowTextInput(false);
 
     // Offline guard
-    if (!isOnline) {
+    if (!isOnlineRef.current) {
       pendingAnswerRef.current = transcript;
       showToast('Waiting for connection to resume...');
       return;
@@ -753,7 +762,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
     setTypedAnswer('');
     setShowTextInput(false);
 
-    if (!isOnline) {
+    if (!isOnlineRef.current) {
       pendingAnswerRef.current = text;
       showToast('Waiting for connection to resume...');
       return;
@@ -831,6 +840,7 @@ export default function InterviewRoom({ interview }: InterviewRoomProps) {
         const ctx = new ACtor();
         if (ctx.state === 'suspended') await ctx.resume();
         ctx.createBufferSource().start(0);
+        ctx.close().catch(() => {});
       }
     } catch { /* ignore */ }
 

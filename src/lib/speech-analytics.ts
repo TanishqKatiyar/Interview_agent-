@@ -60,17 +60,17 @@ export function analyzeSpeechPatterns(
   let selfCorrectionCount = 0;
   let assertiveCount = 0;
 
-  const analogyRegex = /\\b(like|imagine|think of it as|similar to|it's as if)\\b/gi;
-  const stepByStepRegex = /\\b(first|then|next|after that|finally)\\b/gi;
-  const concreteExampleRegex = /\\b(for example|let's say|imagine you have|picture this|such as)\\b/gi;
-  const hedgingRegex = /\\b(maybe|i think|sort of|kind of|probably|i guess|possibly|might)\\b/gi;
-  const correctionRegex = /\\b(actually|wait no|i mean|let me rephrase|scratch that)\\b/gi;
-  const complexMarkers = /,|\\b(because|although|when|if|since|unless|while)\\b/gi;
-  const assertiveRegex = /\\b(definitely|certainly|absolutely|will|must|is|are|do)\\b/gi;
+  const analogyRegex = /\b(like|imagine|think of it as|similar to|it's as if)\b/gi;
+  const stepByStepRegex = /\b(first|then|next|after that|finally)\b/gi;
+  const concreteExampleRegex = /\b(for example|let's say|imagine you have|picture this|such as)\b/gi;
+  const hedgingRegex = /\b(maybe|i think|sort of|kind of|probably|i guess|possibly|might)\b/gi;
+  const correctionRegex = /\b(actually|wait no|i mean|let me rephrase|scratch that)\b/gi;
+  const complexMarkers = /,|\b(because|although|when|if|since|unless|while)\b/gi;
+  const assertiveRegex = /\b(definitely|certainly|absolutely|will|must|is|are|do)\b/gi;
 
   candidateEntries.forEach((entry) => {
     const text = entry.content;
-    const words = text.toLowerCase().match(/\\b\\w+\\b/g) || [];
+    const words = text.toLowerCase().match(/\b\w+\b/g) || [];
     
     words.forEach(w => uniqueWords.add(w));
     
@@ -85,7 +85,7 @@ export function analyzeSpeechPatterns(
       if (s.match(complexMarkers)) complexSentences++;
     });
 
-    questionUsage += countMatches(text, /\\b(does that make sense|right|you follow|make sense)\?\\b/gi);
+    questionUsage += countMatches(text, /\b(does that make sense|right|you follow|make sense)\?/gi);
     analogyCount += countMatches(text, analogyRegex);
     stepByStepCount += countMatches(text, stepByStepRegex);
     concreteExampleCount += countMatches(text, concreteExampleRegex);
@@ -99,7 +99,7 @@ export function analyzeSpeechPatterns(
   // Consistency (Std Dev)
   const meanLength = avgResponseLength;
   const variance = candidateEntries.reduce((acc, val) => {
-    const wCount = (val.content.match(/\\b\\w+\\b/g) || []).length;
+    const wCount = (val.content.match(/\b\w+\b/g) || []).length;
     return acc + Math.pow(wCount - meanLength, 2);
   }, 0) / candidateEntries.length;
   const responseConsistency = Math.sqrt(variance);
